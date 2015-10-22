@@ -12,6 +12,8 @@ The ALEC script takes a fasta file as a reference file and a SAM file as the raw
 
 Python ALEC.py input.sam reference.fasta
 
+The script will automatically generate a corrected fasta file in the working directory.
+
 Note: the script only takes one single sequence as reference each time. 
 
 The script was developed with Python 2.7.
