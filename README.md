@@ -8,11 +8,9 @@ There are four types of sequencing errors that can be corrected after applying A
 3) Indels near sequence variants
 4) Random mismatches
 
-The ALEC script takes a fasta file as a reference file and a SAM file as the raw data alignment file, and generates a corrected fasta file as output.? The usage of the script is as below:
+The ALEC script takes a fasta file as a reference file and a SAM file as the raw data alignment file, and automatically generates a corrected fasta file as output in the working directory. The usage of the script is as below:
 
 Python ALEC.py input.sam reference.fasta
-
-The script will automatically generate a corrected fasta file in the working directory.
 
 Note: the script only takes one single sequence as reference each time. 
 
