@@ -17,8 +17,7 @@ Note: 1) The script only takes one single sequence as reference each time. Pleas
 
 The script was developed with Python 2.7.
 
-For additional information on the development and validation of ALEC with the CYP2D6 gene, see below reference.
-Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
+For additional information on the development and validation of ALEC with the CYP2D6 gene, see reference: Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
 
 A manuscript detailing and evaluating the functionality of ALEC is currently in preparation.
 
