@@ -24,9 +24,21 @@ ref_seq = ''
 len_ref = 0
 
 '''Open input and output files'''
-input_file = open(sys.argv[1],"r")
-reference_file = open(sys.argv[2],"r")
-output_file = open(sys.argv[1][:-3]+'corrected.fasta',"w+")
+try:
+    input_file = open(sys.argv[1],"r")
+    reference_file = open(sys.argv[2],"r")
+    output_file = open(sys.argv[1][:-3]+'corrected.fasta',"w+")
+except:
+    print("""
+This script takes a fasta file as a reference file and a SAM file as the raw data alignment file, and automatically generates a corrected fasta file as output in the working directory.
+
+The usage of the script is as below:
+
+    python ALEC.py input.sam reference.fasta
+
+Note: the script only takes one single sequence as reference each time.
+    """)
+    sys.exit(0)
 
 '''define function for getting DNA sequence from reference fasta file'''
 def parse_fasta(reference_file):
