@@ -13,9 +13,9 @@
 import sys
 import re
 import time
-
-'''Define the global variables'''
-start_t = time.time()
+import argparse
+'''Define global variables'''
+start_time = time.time()
 num_del = 0
 num_ins = 0
 num_mis = 0
@@ -30,7 +30,7 @@ try:
     output_file = open(sys.argv[1][:-3]+'corrected.fasta',"w+")
 except:
     print("""
-This script takes a fasta file as a reference file and a SAM file as the raw data alignment file, and automatically generates a corrected fasta file as output in the working directory.
+ALEC takes a fasta file as reference and a SAM file as the raw data alignment information, and automatically generates a corrected fasta file as output in the same directory as raw data.
 
 The usage of the script is as below:
 
@@ -70,8 +70,7 @@ def RevC(seq):
 
 '''define funcion for extracting single read information from each line in sam file'''
 def parse_sam(read):
-    global total_num
-    global ref_seq 
+    global total_num, ref_seq
     len_ref = len(ref_seq)
     read = read.rstrip()
     items = read.split('\t')
@@ -247,8 +246,7 @@ def correct_insert(base_matrix, ins_rate, insert_bases_matrix,most_possible_alle
     return [base_matrix,insert_bases_matrix,match_matrix]
 
 def correct_base(match_matrix,most_possible_allele,base_matrix,allele_freq_lst,ins_rate,most_possible_insert,insert_bases_matrix):
-    global num_mis
-    global num_ins
+    global num_mis, num_ins
     for i in range(len(allele_freq_lst)):
         if allele_freq_lst[i][4] >= 0.75:
             for j in range(len(base_matrix[i])):
@@ -258,7 +256,6 @@ def correct_base(match_matrix,most_possible_allele,base_matrix,allele_freq_lst,i
                     num_ins += 1
         else:
             for j in range(len(base_matrix[i])):
-                print base_matrix[i][j]
                 if  (base_matrix[i][j] not in ['.','R']) and (allele_freq_lst[i]['ATCGD'.index(base_matrix[i][j])] <= 0.15):
                     base_matrix[i][j] = most_possible_allele[i]
                     num_mis += 1
@@ -271,8 +268,7 @@ def correct_base(match_matrix,most_possible_allele,base_matrix,allele_freq_lst,i
     return [base_matrix,match_matrix,insert_bases_matrix]  
 
 def correct_sam(sam_file):
-    global len_ref
-    global ref_context_info
+    global len_ref, ref_context_info
     mis_rate = []
     reads_in_sam,seq,strand,cigar,start_pos,operation,length,correction,allele_freq_lst  = ([] for i in range(9))
     for line in sam_file:
@@ -297,8 +293,6 @@ def correct_sam(sam_file):
     for i in range(len(allele_freq_lst)):
         mis_rate.append(1-allele_freq_lst[i]["ATCG".index(reference[i])]-allele_freq_lst[i][4])
     del_rate,ins_rate = get_indel_rate(match_matrix) 
-    print del_rate[4523]
-    print ins_rate[4523]
     [base_matrix,match_atrix] = correct_deletion(base_matrix, del_rate, most_possible_allele, match_matrix)
     [base_matrix,insert_bases_matrix,match_matrix] = correct_insert(base_matrix, ins_rate, insert_bases_matrix,most_possible_allele,match_matrix,allele_freq_lst)
     allele_freq_lst,most_possible_allele = get_allele_freq_lst(base_matrix)
@@ -324,10 +318,10 @@ def correct_sam(sam_file):
 
 cor_reads = correct_sam(input_file)
 
-print num_del
-print num_ins
-print num_mis
-print total_num
+print (">>>>>>>> %s seconds <<<<<<<<" % (time.time() - start_time))
+print ("deletion rate: %s" %  (num_del/float(total_num)))
+print ("insert rate: %s" % (num_ins/float(total_num)))
+print ("mismatch rate: %s" % (num_mis/float(total_num)))
 for i in range(len(cor_reads[1])):
     output_file.write('>' + cor_reads[0][i] + '\n' + cor_reads[1][i] + '\n')
     
