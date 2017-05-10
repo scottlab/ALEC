@@ -16,15 +16,15 @@ For additional information on the development and validation of ALEC with the CY
 
 A manuscript detailing and evaluating the functionality of ALEC is currently in preparation.
 
-##System requirements
-  *Python 2.7.10
-  *asgparse
-  *pysam
-*sys
-*re
-*time
-*random
-*itertools
-*operator
-*math
-*numpy
+## System requirements
+  * Python 2.7.10
+  * asgparse
+  * pysam
+* sys
+* re
+* time
+* random
+* itertools
+* operator
+* math
+* numpy
