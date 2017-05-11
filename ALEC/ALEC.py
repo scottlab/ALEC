@@ -11,17 +11,15 @@
 #================================================================================================================================================================================
 
 '''Import the modules needed to run the script'''
-import sys
-import re
 import time
 import pysam
 import argparse
 import subprocess
-import math
 import numpy
 import random
 from itertools import groupby
 from operator import itemgetter
+
 start_time = time.time()
 
 def get_argument():
