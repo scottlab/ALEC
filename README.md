@@ -44,5 +44,5 @@ A manuscript detailing and evaluating the functionality of ALEC is currently in 
 |--insert, -ins|	Float|	0.0|	Required. Insert error frequency threshold (per base) to trigger correction.|
 |--mismatch, -mis|	Float	|0.0|	Required. Substitution error frequency threshold (per base) to trigger correction.|
 |--del_homo_p, -del_hp |	Float	|0.0|	Required. Deletion Homopolymer Penalty.|
-|--ins_homo_p	| -ins_hp |	Float	|0.0|	Optional. Insert Homopolymer Penalty.|
+|--ins_homo_p, -ins_hp |	Float	|0.0|	Optional. Insert Homopolymer Penalty.|
 
