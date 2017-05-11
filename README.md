@@ -35,7 +35,7 @@ A manuscript detailing and evaluating the functionality of ALEC is currently in 
 |--input	| -i	| string	| NA	| Required. Input file, SAM or BAM. |
 |-- reference|-r|string|	NA	|Required. Reference file, FASTA file, index reference file following Samtools manual| 
 |--targetRegion|-t|	string|	NA	|Required. Target region interval. Example: 1:300000-400000|
-|--lengthFilter|-lf	|float|	1.0|	Optional. Reads shorter than lengthFilter*length(targetRegion)  will be excluded in this correction process.|
+|--lengthFilter|-lf	|float|	1.0|	Optional. Reads shorter than lengthFilter * length(targetRegion) will be excluded in this correction process.|
 |--downsample|	-ds|	Float|	1.0|	Optional. Fraction of down sampling. |
 |--deletion	|-del|	Float|	0.0	|Required. Deletion error frequency threshold (per base) to trigger correction.|
 |--insert	|-ins|	Float|	0.0|	Required. Insert error frequency threshold (per base) to trigger correction.|
