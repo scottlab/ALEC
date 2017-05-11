@@ -12,7 +12,7 @@ Four types of sequencing errors can be corrected after applying ALEC: 1) random 
 ## Usage
 The ALEC script takes a fasta file as a reference file and a SAM/BAM file as the raw data alignment file, and automatically generates a corrected fasta file as output in the working directory. The usage of the script is as below:
 
-Python ALEC.py -r reference.fasta -i filename.bam\/sam [arguments] 
+Python ALEC.py -r reference.fasta -i input.bam\/sam [arguments] 
 
 
 ### Arguments Table
