@@ -292,7 +292,6 @@ def replace_confusing_deletion(i,j):
                 base_matrix[i+k+del_len][j] = 'D'
                 match_matrix[i+k+del_len][j] = '0'
  
-
 def correct_del_in_new_2bp_homopolymer(i,j):
     '''correct deletion caused by homopolymer caseed by polymeorphism'''
     if (i>0 and base_matrix[i-1][j] not in ['.','R','D']
@@ -382,7 +381,6 @@ def correct_large_insert(i):
                 insert_bases_matrix[i][j] =consensus_insert[i]
                 match_matrix[i][j] = '2'
   
-
 def correct_miscall():
     for i in range(len(allele_freq_lst)):
         for j in range(len(base_matrix[i])):
@@ -410,7 +408,6 @@ def get_reads_from_input(input_file):
 
 def correct_reads(reads_in_sam):
     global mis_rate, allele_freq_lst, snv_ins_freq,base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag,mis_rate0,ins_rate0,del_rate0,ct_base_lst0,ct_ins_lst0,ct_dep_lst0 ,ct_del_lst0
-
     correction,allele_freq_lst,base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag,mis_rate  = ([] for i in range(8))
     extract_feature_matrix(reads_in_sam)
     get_allele_freq_lst()
@@ -453,8 +450,6 @@ def correct_reads(reads_in_sam):
             correction.append(RevC(corrected_seq))
     return [reads_ID,correction]
 
-
-
 def output_corrected_reads(cor_reads, input_file):
     with open(input_file[:-3]+"corrected.fasta","w+") as output_file:
         for i in range(len(cor_reads[1])):
@@ -468,9 +463,7 @@ def output_error_rate(input_file):
     with open(input_file[:-3]+"error_rate_file_after","w+") as error_rate_file:
         for i in range(len(mis_rate)):
             error_rate_file.write('\t'.join(map(str,[region_chr, i + region_start, round(mis_rate[i],5),round(del_rate[i],5),round(ins_rate[i],5)]+map(str,ct_base_lst[i])+map(str,[ct_del_lst[i],ct_ins_lst[i],ct_dep_lst[i]])+ ref_context_info[i]))+'\n')
-
-
-
+            
 def main():
     global region_chr, region_start, region_end,args 
     parser = get_argument()
