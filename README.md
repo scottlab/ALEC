@@ -4,18 +4,6 @@ Amplicon Long-read Error Correction
 
 Four types of sequencing errors can be corrected after applying ALEC: 1) random substitutions; 2) random indels; 3) indels within homopolymers; and 4) indels near sequence variants.
  
-The ALEC script takes a fasta file as a reference file and a SAM/BAM file as the raw data alignment file, and automatically generates a corrected fasta file as output in the working directory. The usage of the script is as below:
-
-Python ALEC.py input.sam reference.fasta
-
-Note: 1) The script only takes one single sequence as reference each time. Please use the exact interval of sequenced genomic region as reference. 2) We do not have a preference regarding the available sequence alignment tools; however, we used SAM files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details).
-
-The script was developed with Python 2.7.
-
-For additional information on the development and validation of ALEC with the CYP2D6 gene, see reference: Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
-
-A manuscript detailing and evaluating the functionality of ALEC is currently in preparation.
-
 ## System requirements
 * Python 2.7.10
 * argparse
@@ -30,6 +18,13 @@ A manuscript detailing and evaluating the functionality of ALEC is currently in 
 * numpy
 
 ## Usage
+The ALEC script takes a fasta file as a reference file and a SAM/BAM file as the raw data alignment file, and automatically generates a corrected fasta file as output in the working directory. The usage of the script is as below:
+
+Python ALEC.py -r reference.fasta -i filename.bam\/sam [arguments] 
+
+## Note
+1. The script only takes one single sequence as reference each time. Please use the same reference file as used in alignment. 
+2. We do not have a preference regarding the available sequence alignment tools; however, we used alignment files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details). Files from other alignment tool could lead to unexpected performance. 
 
 ### Arguments Table
 
@@ -46,3 +41,7 @@ A manuscript detailing and evaluating the functionality of ALEC is currently in 
 |--del_homo_p<br/>-del_hp |	Float	|0.0|	Required. Deletion Homopolymer Penalty.|
 |--ins_homo_p<br/> -ins_hp |	Float	|0.0|	Optional. Insert Homopolymer Penalty.|
 
+## Reference
+A manuscript detailing and evaluating the functionality of ALEC is currently in preparation.
+For an application example of ALEC, see reference: 
+Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
