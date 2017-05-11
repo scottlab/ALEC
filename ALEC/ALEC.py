@@ -1,54 +1,58 @@
 #!/usr/bin/env python
-#title           :pyscript.py
-#description     :correct long sequencing(pacbio) reads after aglinment
-#author          :Yao Yang
-#date            :20150530
-#version         :0.1
-#usage           :python alec.py
-#notes           :
-#python_version  :2.7.2
-#==============================================================================
+#title               :ALEC.py
+#description         :Correct Long Read Sequencing(Pacbio or Nanopore)
+#author              :Yao Yang
+#date of 1st version :05/30/2015
+#last revised date   :05/01/2017
+#version             :1.0
+#usage               :python ALEC.py
+#notes               :
+#python_version      :2.7.10
+#================================================================================================================================================================================
 
 '''Import the modules needed to run the script'''
 import sys
 import re
 import time
+import pysam
 import argparse
-'''Define global variables'''
+import subprocess
+import math
+import numpy
+import random
+from itertools import groupby
+from operator import itemgetter
 start_time = time.time()
-num_del = 0
-num_ins = 0
-num_mis = 0
-total_num = 0
-ref_seq = ''
-len_ref = 0
 
-'''Open input and output files'''
-try:
-    input_file = open(sys.argv[1],"r")
-    reference_file = open(sys.argv[2],"r")
-    output_file = open(sys.argv[1][:-3]+'corrected.fasta',"w+")
-except:
-    print("""
-ALEC takes a fasta file as reference and a SAM file as the raw data alignment information, and automatically generates a corrected fasta file as output in the same directory as raw data.
+def get_argument():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input", help="Input file, currently SAM only, but will expand to BAM")
+    parser.add_argument("-r", "--reference", help="Reference file")
+    parser.add_argument("-t", "--targetRegion", help="Target regions interval")
+    parser.add_argument("-del", "--deletion", help="Deletion error frequency baseline to trigger correction.", type = float, default = 0.15)
+    parser.add_argument("-ins", "--insert", help="Insert error frequency baseline to trigger correction.", type = float, default = 0.15)
+    parser.add_argument("-mis", "--mismatch", help="Mismatch error frequency baseline to trigger correction.", type = float, default = 0.05)
+    parser.add_argument("-lf", "--lengthFilter", help="Reads shorter than lengthFilter*Reference_length will be excluede in this correction process", type = float, default = 0.0)
+    parser.add_argument("-del_hp", "--del_homo_p", help="Deletion Homopolymer Penatly.", type = float, default = 0.05)
+    parser.add_argument("-ins_hp", "--ins_homo_p", help="Insert Homopolymer Penatly.", type = float, default = 0.0)
+    parser.add_argument("-ds", "--downsample_freq", help="downsampling_freq", type = float, default = 1.0)
+    return parser
 
-The usage of the script is as below:
 
-    python ALEC.py input.sam reference.fasta
-
-Note: the script only takes one single sequence as reference each time.
-    """)
-    sys.exit(0)
-
-'''define function for getting DNA sequence from reference fasta file'''
 def parse_fasta(reference_file):
-    global ref_seq
+    '''getting DNA sequence from reference fasta file'''
+    global ref_seq, len_ref, ref_context_info
     counter = 1
+    ref_seq = str()
     ref_context_info = []
-    for line in reference_file:
-        if line[0] != '>':
-            line = line.rstrip()
-            ref_seq += str(line)
+    with open (str(region_chr) + "_" + str(region_start) + "_" + str(region_end) + ".fasta","w+") as  temp_target_file:
+        cmd= ['samtools', 'faidx', args.reference, args.targetRegion]
+        subprocess.call(cmd, stdout= temp_target_file)
+        temp_target_file.seek(0)
+        for line in temp_target_file:
+            if line[0] != '>':
+                line = line.rstrip()
+                ref_seq += str(line)
     for i in range(len(ref_seq)-1):
         if ref_seq[i] == ref_seq[i+1]:
             counter += 1
@@ -61,130 +65,155 @@ def parse_fasta(reference_file):
             counter = 1
             if i == len(ref_seq)-2:
                 ref_context_info.append([ref_seq[-1],1,1])
+    len_ref = len(ref_seq)
     return [ref_seq,ref_context_info]
 
-'''define function for getting DNA reverse complement'''
 def RevC(seq):
+    '''getting DNA reverse complement'''
     seq_dict = {'A':'T','T':'A','G':'C','C':'G','N':'N','D':'D'}
     return "".join([seq_dict[base] for base in reversed(seq)])
 
-'''define funcion for extracting single read information from each line in sam file'''
 def parse_sam(read):
-    global total_num, ref_seq
-    len_ref = len(ref_seq)
+    '''extracting single read information from each line in sam file'''
     read = read.rstrip()
     items = read.split('\t')
-    [start,cigar,seq] = [int(items[3]),items[5],items[9]]
-    match = '.'*(int(items[3]) - 1)
-    insert_bases = ['']*(int(items[3]) - 1)
-    num,align = ([] for i in range(2))
+    [flag,start,cigar,seq] = [items[1],int(items[3]), items[5], items[9]]
+    match, read_seq  = (str() for i in range(2))
+    base_length,operator,insert_bases = ([] for i in range(3))
     insert = False
-    read_seq = '.'*(int(items[3]) - 1)
-    while len(cigar)>0:    
+    read_seq = str()
+    while len(cigar)>0:
         for i in range(len(cigar)):
             if cigar[i].isalpha():
                 pos = i
                 break
-        num.append(int(cigar[:pos]))
-        align.append(cigar[pos])
+        base_length.append(int(cigar[:pos]))
+        operator.append(cigar[pos])
         cigar = cigar[pos+1:]
-    if align[0] in ['S','H']:
-        seq = seq[num[0]:]
-        align.pop(0)
-        num.pop(0)
-    if align[-1] in ['S','H']:
-        seq = seq[:len(seq) - num[-1]]
-        align.pop()
-        num.pop()
-    seq_cy = seq
-    for i in range(len(num)):
-        if align[i] == 'M':
-            read_seq += seq_cy[:num[i]]
-            seq_cy = seq_cy[num[i]:]
+    if operator[0] in ['S','H']:
+        if operator[0] == 'S':
+            seq = seq[base_length[0]:]
+        operator.pop(0)
+        base_length.pop(0)
+    if operator[-1] in ['S','H']:
+        if operator[-1] == 'S':
+            seq = seq[:len(seq) - base_length[-1]]
+        operator.pop()
+        base_length.pop()
+    seq_clipping_trimmed = seq
+    for i in range(len(base_length)):
+        if operator[i] == 'M':
+            read_seq += seq_clipping_trimmed[:base_length[i]]
+            seq_clipping_trimmed = seq_clipping_trimmed[base_length[i]:]
             if not insert:
-                match += '1'*(num[i])
-                insert_bases += ['O']*(num[i]) 
+                match += '1'*(base_length[i])
+                insert_bases += ['O']*(base_length[i]) 
             else:
-                match += '1'*(num[i]-1)
-                insert_bases += ['O']*(num[i] - 1)
+                match += '1'*(base_length[i]-1)
+                insert_bases += ['O']*(base_length[i] - 1)
                 insert = False
-        elif align[i] == 'D':
-            read_seq += 'D'*num[i]
-            match += '0'*num[i]
-            insert_bases += ['']*(num[i])
-        elif align[i] == 'I':
+        elif operator[i] == 'D':
+            read_seq += 'D'*base_length[i]
+            match += '0'*base_length[i]
+            insert_bases += ['']*(base_length[i])
+        elif operator[i] == 'I':
             match += '2'
-            insert_bases.append(seq_cy[:num[i]])
-            seq_cy = seq_cy[num[i]:]
+            insert_bases.append(seq_clipping_trimmed[:base_length[i]])
+            seq_clipping_trimmed = seq_clipping_trimmed[base_length[i]:]
             insert = True 
-    total_num += (len(match) - (int(items[3]) - 1))
+    if start > region_start:
+        match = '.' * (start-region_start) + match
+        insert_bases = ['']*(start-region_start)+ insert_bases
+        read_seq = '.'* (start-region_start) +read_seq 
+    else:
+        match = match[(region_start-start):] 
+        insert_bases = insert_bases[(region_start-start):]
+        read_seq = read_seq[(region_start-start):]
+    match = match[:len_ref]
+    insert_bases = insert_bases[:len_ref]
     match += '.'*(len_ref - len(match))
-    read_seq += (len_ref - len(read_seq))*'.'
     insert_bases += [''] * (len_ref - len(insert_bases))
-    return [match,seq,align,num,read_seq,insert_bases,items[0]]
+    read_seq = read_seq[:len_ref]
+    read_seq +=  '.'*(len_ref - len(read_seq))
+    read_length_overlapped_with_target_region = len([c for c in match if c.isdigit()])
+    return [match,seq,operator,base_length,read_seq,insert_bases,items[0],read_length_overlapped_with_target_region,flag]
 
-'''define function for extract match_maatrix, base_matrix and insert_matrix from sam file'''
 def extract_feature_matrix(reads_in_sam):
-    match_matrix,base_matrix,insert_bases_matrix,reads_ID  = ([] for i in range(4))
+    '''extract match_maatrix, base_matrix and insert_matrix from sam file'''
+    global base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag
+    match_matrix,base_matrix,insert_bases_matrix,reads_ID,reads_flag  = ([] for i in range(5))
     for line in reads_in_sam:
-        parse_sam_output = parse_sam(line)
-        match_matrix.append(parse_sam_output[0])
-        base_matrix.append(parse_sam_output[4])
-        insert_bases_matrix.append(parse_sam_output[5])
-        reads_ID.append(parse_sam_output[6])
+        parsed_read = parse_sam(line)
+        if parsed_read[7] > args.lengthFilter * len_ref:
+            match_matrix.append(parsed_read[0])
+            base_matrix.append(parsed_read[4])
+            insert_bases_matrix.append(parsed_read[5])
+            reads_ID.append(parsed_read[6])
+            reads_flag.append(parsed_read[8])
     match_matrix = map(list,zip(*match_matrix))
     base_matrix = map(list,zip(*base_matrix))
     insert_bases_matrix = map(list,zip(*insert_bases_matrix))
-    return [match_matrix, base_matrix, insert_bases_matrix,reads_ID]
 
-def get_allele_freq_lst(base_matrix):
-    allele_freq_lst = []
-    most_possible_allele = ''
+def get_allele_freq_lst():
+    global ct_base_lst, consensus_allele, depth, allele_freq_lst, ct_base_lst
+    ct_base_lst,ct_base,allele_freq_lst,depth,consensus_allele,allele_freq = ([] for i in range(6))
+    base_lst =  ["A","T","C","G","D"]
     for i in range(len(base_matrix)):
-         A_ct = base_matrix[i].count('A')
-         T_ct = base_matrix[i].count('T')
-         C_ct = base_matrix[i].count('C')
-         G_ct = base_matrix[i].count('G')
-         D_ct = base_matrix[i].count('D')
-         total_ct = float(A_ct + T_ct + C_ct + G_ct + D_ct)
-         allele_freq = [A_ct/total_ct,T_ct/total_ct,C_ct/total_ct,G_ct/total_ct,D_ct/total_ct]
-         allele_freq_lst.append(allele_freq)
-         max_af = max(allele_freq)
-         idx = allele_freq.index(max_af)
-         most_possible_allele += 'ATCGD'[idx]
-    return [allele_freq_lst,most_possible_allele]
+        ct_miscall=0
+        ct_base = [0 for i in range(5)] 
+        allele_freq = [0 for i in range(5)]
+        for base in range(len(base_lst)):
+            ct_base[base] = base_matrix[i].count(base_lst[base])
+        total_ct = sum(ct_base)
+        depth.append(total_ct)
+        for base in range(len(base_lst)):
+            allele_freq[base] = ct_base[base]/total_ct
+        for freq in range(len(allele_freq)):
+            if allele_freq[freq] < args.mismatch:
+                ct_miscall += ct_base[freq]
+        ct_base_lst.append(ct_base)
+        allele_freq_lst.append(allele_freq)
+        max_af = max(allele_freq)
+        idx = allele_freq.index(max_af)
+        consensus_allele.append('ATCGD'[idx])
 
-def get_indel_rate(match_matrix):
-    del_rate = []
-    ins_rate = []
+def get_indel_rate():
+    global del_rate, ins_rate,ct_del_lst, ct_ins_lst, ct_dep_lst
+    ct_del_lst, ct_ins_lst,  ct_dep_lst,del_rate, ins_rate = ([] for i in range(5))
     for i in range(len(match_matrix)):
         match_count = match_matrix[i].count('1')
         del_count = match_matrix[i].count('0')
         ins_count = match_matrix[i].count('2')
-        total_reads = match_count + del_count + ins_count
-        del_rate.append(del_count/float(total_reads))
-        ins_rate.append(ins_count/float(total_reads))
-    return [del_rate,ins_rate]
+        base_depth = match_count + del_count + ins_count
+        del_rate.append(del_count/float(base_depth))
+        ins_rate.append(ins_count/float(base_depth))
+        ct_del_lst.append(del_count)
+        ct_ins_lst.append(ins_count)
+        ct_dep_lst.append(base_depth)
 
-def get_most_possbile_insert_bases(insert_bases_matrix):
-    most_possible_insert = []
-    for i in insert_bases_matrix:
-        unique_insert =list(set(i))
-        if '' in unique_insert:
-            unique_insert.remove('')
+def get_consensus_insert_bases():
+    global consensus_insert,snv_ins_freq
+    consensus_insert,sninsert_freq,A_insert_freq,T_insert_freq,C_insert_freq,G_insert_freq =( [] for i in range(6))
+    sninsert_freq = []
+    for i in range(len(insert_bases_matrix)):
+        inserts_at_pos = list(set(insert_bases_matrix[i]))
+        if '' in inserts_at_pos:
+            inserts_at_pos.remove('')
         ct_insert_bases = []
-        for element in unique_insert:
-            ct_insert_bases.append(i.count(element))
+        for element in inserts_at_pos:
+            ct_insert_bases.append(insert_bases_matrix[i].count(element))
         if ct_insert_bases == []:
-            most_possible_insert.append('')
-        elif max(ct_insert_bases)/float(sum(ct_insert_bases)) >= 0.8:
-            if unique_insert[ct_insert_bases.index(max(ct_insert_bases))] != 'O':
-                most_possible_insert.append(unique_insert[ct_insert_bases.index(max(ct_insert_bases))])
-            else:
-                most_possible_insert.append('')
+            consensus_insert.append('')
+        elif inserts_at_pos[ct_insert_bases.index(max(ct_insert_bases))] != 'O':
+            consensus_insert.append('')
         else:
-            most_possible_insert.append('')
-    return most_possible_insert
+            consensus_insert.append(inserts_at_pos[ct_insert_bases.index(max(ct_insert_bases))])
+        A_insert_freq.append(insert_bases_matrix[i].count('A')/depth[i])
+        T_insert_freq.append(insert_bases_matrix[i].count('T')/depth[i])
+        C_insert_freq.append(insert_bases_matrix[i].count('C')/depth[i])
+        G_insert_freq.append(insert_bases_matrix[i].count('G')/depth[i])
+    snv_ins_freq  = [A_insert_freq,T_insert_freq,C_insert_freq,G_insert_freq]    
+    return [consensus_insert,[A_insert_freq,T_insert_freq,C_insert_freq,G_insert_freq]]
 
 def max_count_of_base(DNA_string):
     max_ct = 0
@@ -198,106 +227,214 @@ def max_count_of_base(DNA_string):
             max_base = i
     return [max_ct,max_base]
 
-def correct_deletion(base_matrix, del_rate, most_possible_allele,match_matrix):
-    global num_del
-    for i in range(len(del_rate)):
-        if del_rate[i] == 0:
-            pass
-        elif del_rate[i] <= 0.15 or del_rate[i] <= 0.15+0.05*(ref_context_info[i][2]-2):
-            for j in range(len(base_matrix[i])):
-                if base_matrix[i][j] == 'D':
-                    base_matrix[i][j] = most_possible_allele[i]
-                    match_matrix[i][j] = '1'
-                    num_del += 1
-    return [base_matrix,match_matrix]
+def large_deletion_finder():
+    global true_large_del
+    connected_deletion_matrix = [['0' for i in range(len(match_matrix[0]))] for j in range(len(match_matrix)-1)] 
+    connected_deletion_freq =[0.0 for i in range(len(match_matrix)-1)]
+    large_del_pos = []
+    large_del_freq = []
+    large_del = []
+    true_large_del = []
+    for i in range(len(match_matrix)-1):
+        for j in range(len(match_matrix[0])):
+            if match_matrix[i][j] == '0' and match_matrix[i+1][j] == '0':
+                connected_deletion_matrix[i][j] = '1'
+            if match_matrix[i][j] == '.' or match_matrix[i+1][j] == '.':
+                connected_deletion_matrix[i][j] = '.'
+    for i in range(len(match_matrix)-1):
+        connected_deletion_freq[i] = float(connected_deletion_matrix[i].count('1'))/(connected_deletion_matrix[i].count('1')+connected_deletion_matrix[i].count('0'))
+    for i in range(len(connected_deletion_freq)):
+        if connected_deletion_freq[i] >= args.deletion:
+            large_del_pos.append(i)
+            large_del_freq.append(connected_deletion_freq[i]) 
+    for k, g in groupby(enumerate(large_del_pos), lambda (i, x): i-x): 
+        large_del.append(map(itemgetter(1), g))
+    for pos in large_del:
+        pos+=[pos[-1]+1]
+    for i in range(len(large_del)):
+        tem_del_freq = [0.0 for k in range(len(large_del[i]))]
+        for j in range(len(large_del[i])):
+            tem_del_freq[j] = connected_deletion_freq[large_del[i][j]]
+        if len(tem_del_freq)>2 and numpy.std(tem_del_freq)<=0.1:
+            true_large_del+=large_del[i]
 
-def correct_insert(base_matrix, ins_rate, insert_bases_matrix,most_possible_allele,match_matrix,allele_freq_lst):
-    global num_ins
-    polybase = []
-    for i in range(len(allele_freq_lst)):
-        if sorted(allele_freq_lst[i])[-2]>=0.15:
-            polybase.append(i)
-    for i in range(len(ins_rate)):
-        if ins_rate[i] == 0:
-            pass
-        elif i in polybase:
+def adjust_deletion_pos(i,j):
+    '''correct deletion misplaced by aliner'''
+    if (i>0 and base_matrix[i-1][j] not in ['.','R','D']
+        and allele_freq_lst[i-1]['ATCG'.index(base_matrix[i-1][j])] <= args.mismatch
+        and allele_freq_lst[i]['ATCG'.index(base_matrix[i-1][j])] >= args.mismatch):
+        base_matrix[i][j]=base_matrix[i-1][j]
+        match_matrix[i][j] = '1'
+        base_matrix[i-1][j] = 'D'
+        match_matrix[i-1][j] = '0'
+    elif (i<len(base_matrix)-1
+          and base_matrix[i+1][j] not in ['.','R','D']
+          and allele_freq_lst[i+1]['ATCG'.index(base_matrix[i+1][j])] <= args.mismatch
+          and allele_freq_lst[i]['ATCG'.index(base_matrix[i+1][j])] >= args.mismatch):
+        base_matrix[i][j]=base_matrix[i-1][j]
+        match_matrix[i][j] = '1'
+        base_matrix[i+1][j] = 'D'
+        match_matrix[i+1][j] = '0'
+
+def replace_confusing_deletion(i,j):
+    '''correct deletion misplaced by aliner'''
+    del_len = 1
+    while match_matrix[i+del_len][j] == '0':
+        del_len+=1
+    if (i+2*del_len<len(base_matrix)
+        and i+del_len not in true_large_del):
+        for k in range(del_len):
+            if base_matrix[i+k+del_len][j]!=consensus_allele[i+k]:
+                break
+            else:
+                base_matrix[i+k][j] = consensus_allele[i+k]
+                match_matrix[i+k][j] = '1'  
+                base_matrix[i+k+del_len][j] = 'D'
+                match_matrix[i+k+del_len][j] = '0'
+ 
+
+def correct_del_in_new_2bp_homopolymer(i,j):
+    '''correct deletion caused by homopolymer caseed by polymeorphism'''
+    if (i>0 and base_matrix[i-1][j] not in ['.','R','D']
+        and allele_freq_lst[i-1]['ATCG'.index(base_matrix[i-1][j])] >= args.mismatch
+        and allele_freq_lst[i]['ATCG'.index(base_matrix[i-1][j])] >= args.mismatch):
+        base_matrix[i][j]=base_matrix[i-1][j]
+        match_matrix[i][j] = '1'
+    elif (i<len(base_matrix)-1
+          and base_matrix[i+1][j] not in ['.','R','D']
+          and allele_freq_lst[i+1]['ATCG'.index(base_matrix[i+1][j])] >= args.mismatch
+          and allele_freq_lst[i]['ATCG'.index(base_matrix[i+1][j])] >= args.mismatch):
+        base_matrix[i][j]=base_matrix[i+1][j]
+        match_matrix[i][j] = '1'
+
+
+def correct_deletion(i):
+    '''correct deletion error'''
+    if i in true_large_del:
+        pass
+    elif del_rate[i] <=  args.deletion + args.del_homo_p*(ref_context_info[i][2]-1):
+        if consensus_allele[i] == 'D' and args.deletion + args.del_homo_p*(ref_context_info[i][2]-1) >=1:
+            consensus_allele[i] = ref_seq[i]
+        for j in range(len(base_matrix[i])):
+            if match_matrix[i][j] == '0':        
+                adjust_deletion_pos(i,j)
+                if match_matrix[i][j] == '0':
+                    replace_confusing_deletion(i,j)
+                    if match_matrix[i][j] == '0':
+                        base_matrix[i][j] = consensus_allele[i]
+                        match_matrix[i][j] = '1'
+    elif (i>0 
+          and del_rate[i] >=  args.deletion + args.del_homo_p*(ref_context_info[i][2]-1)
+          and del_rate[i] <= args.deletion + args.del_homo_p*ref_context_info[i][2]):
+        for j in range(len(base_matrix[i])):
+            if match_matrix[i][j] == '0':
+                correct_del_in_new_2bp_homopolymer(i,j)
+    elif del_rate[i] >= 1 - args.insert:
+        for j in range(len(base_matrix[i])):
+            base_matrix[i][j] = 'D'    
+            match_matrix[i][j] = '0'
+
+def correct_single_insert(i):
+    for ins in ['A','T','C','G']:
+        if snv_ins_freq['ATCG'.index(ins)][i]<= args.insert +args.ins_homo_p*(ref_context_info[i][2]-1):
             for j in range(len(insert_bases_matrix[i])):
-                if insert_bases_matrix[i][j] == 'ATCGD'[allele_freq_lst[i].index(sorted(allele_freq_lst[i])[-2])] or  insert_bases_matrix[i][j] == most_possible_allele[i]:
-                    match_matrix[i][j] = '1'
-                    base_matrix[i][j] =  insert_bases_matrix[i][j]
+                if insert_bases_matrix[i][j] == ins:
+                    if (i>0 
+                        and base_matrix[i-1][j] 
+                        and allele_freq_lst[i-1]['ATCGD'.index(base_matrix[i-1][j])] <= args.mismatch 
+                        and  insert_bases_matrix[i][j] == consensus_allele[i-1]):
+                        base_matrix[i-1][j]=consensus_allele[i-1]
+                        match_matrix[i-1][j] = '1'
+                    elif (i<len(base_matrix)-1 
+                          and base_matrix[i+1][j] 
+                          and allele_freq_lst[i+1]['ATCGD'.index(base_matrix[i+1][j])] <= args.mismatch 
+                          and  insert_bases_matrix[i][j] == consensus_allele[i+1]):
+                        base_matrix[i+1][j]=consensus_allele[i+1]
+                        match_matrix[i+1][j] = '1'
                     insert_bases_matrix[i][j] = 'O'
-                    num_ins += 1
-                elif insert_bases_matrix[i-1][j] == base_matrix[i-1][j] == 'ATCGD'[allele_freq_lst[i].index(sorted(allele_freq_lst[i])[-2])] or  insert_bases_matrix[i-1][j] == base_matrix[i-1][j] == most_possible_allele[i]:
+                    match_matrix[i][j] = '1'
+   
+def correct_large_insert(i):
+    if ins_rate[i] <= args.insert +args.ins_homo_p*(ref_context_info[i][2]-1):
+        for j in range(len(insert_bases_matrix[i])):
+            if insert_bases_matrix[i][j] not in ['','O']:
+                if (i>0 
+                   and base_matrix[i-1][j] not in ['.','R'] 
+                   and allele_freq_lst[i-1]['ATCGD'.index(base_matrix[i-1][j])] <= args.mismatch 
+                   and  insert_bases_matrix[i][j] == consensus_allele[i-1]):
+                    base_matrix[i-1][j]=consensus_allele[i-1]
                     match_matrix[i-1][j] = '1'
-                    base_matrix[i][j] =  insert_bases_matrix[i-1][j]
-                    insert_bases_matrix[i-1][j] = 'O'
-                    num_ins += 1
-                elif insert_bases_matrix[i+1][j] == 'ATCGD'[allele_freq_lst[i].index(sorted(allele_freq_lst[i])[-2])] or  insert_bases_matrix[i+1][j] == most_possible_allele[i]:
+                elif (i<len(base_matrix)-1 
+                      and base_matrix[i+1][j] not in ['.','R'] 
+                      and allele_freq_lst[i+1]['ATCGD'.index(base_matrix[i+1][j])] <= args.mismatch 
+                      and  insert_bases_matrix[i][j] == consensus_allele[i+1]):
+                    base_matrix[i+1][j]=consensus_allele[i+1]
                     match_matrix[i+1][j] = '1'
-                    base_matrix[i][j] =  insert_bases_matrix[i+1][j]
-                    insert_bases_matrix[i+1][j] = 'O'
-                    num_ins += 1
-        elif ins_rate[i] <= 0.15 or ins_rate[i] <= 0.15+0.05*(ref_context_info[i][2]-2):
-            for j in range(len(insert_bases_matrix[i])):
-                if insert_bases_matrix[i][j] not in ['','O']:
-                    insert_bases_matrix[i][j] = 'O'
-                    match_matrix[i][j] = '1'
-                    num_ins += 1
-    return [base_matrix,insert_bases_matrix,match_matrix]
+                elif len(insert_bases_matrix[i][j]) == 1:
+                    if (base_matrix[i][j] not in ['.','R'] 
+                       and allele_freq_lst[i]['ATCGD'.index(insert_bases_matrix[i][j])] >= args.mismatch):
+                        base_matrix[i][j]= insert_bases_matrix[i][j]
+                insert_bases_matrix[i][j] = 'O'
+                match_matrix[i][j] = '1'
+    elif ins_rate[i] >= 1 - args.deletion:
+        for j in range(len(insert_bases_matrix[i])):
+            if insert_bases_matrix[i][j] == 'O':
+                insert_bases_matrix[i][j] =consensus_insert[i]
+                match_matrix[i][j] = '2'
+  
 
-def correct_base(match_matrix,most_possible_allele,base_matrix,allele_freq_lst,ins_rate,most_possible_insert,insert_bases_matrix):
-    global num_mis, num_ins
+def correct_miscall():
     for i in range(len(allele_freq_lst)):
-        if allele_freq_lst[i][4] >= 0.75:
-            for j in range(len(base_matrix[i])):
-                if base_matrix[i][j] != 'D':
-                    base_matrix[i][j] = 'D'
-                    match_matrix[i][j] = '0'
-                    num_ins += 1
-        else:
-            for j in range(len(base_matrix[i])):
-                if  (base_matrix[i][j] not in ['.','R']) and (allele_freq_lst[i]['ATCGD'.index(base_matrix[i][j])] <= 0.15):
-                    base_matrix[i][j] = most_possible_allele[i]
-                    num_mis += 1
-        if ins_rate[i] >= 0.75:
-            for j in range(len(insert_bases_matrix[i])):
-                if insert_bases_matrix[i][j] == 'O':
-                    insert_bases_matrix[i][j] =most_possible_insert[i]
-                    match_matrix[i][j] = '2'
-                    num_del += 1
-    return [base_matrix,match_matrix,insert_bases_matrix]  
+        for j in range(len(base_matrix[i])):
+            if  (base_matrix[i][j] not in ['.','R','D'] 
+                 and (allele_freq_lst[i]['ATCGD'.index(base_matrix[i][j])] <= args.mismatch)):
+                if (i>0 and base_matrix[i-1][j] not in ['.','R','D']
+                    and allele_freq_lst[i-1]['ATCG'.index(base_matrix[i][j])] >= args.mismatch):
+                    base_matrix[i-1][j]=base_matrix[i][j]
+                elif (i<len(base_matrix)-1
+                    and base_matrix[i+1][j] not in ['.','R','D']
+                    and allele_freq_lst[i+1]['ATCG'.index(base_matrix[i][j])] >= args.mismatch):
+                    base_matrix[i+1][j]=base_matrix[i][j]
+                base_matrix[i][j] = consensus_allele[i]
+                match_matrix[i][j] = '1'
 
-def correct_sam(sam_file):
-    global len_ref, ref_context_info
-    mis_rate = []
-    reads_in_sam,seq,strand,cigar,start_pos,operation,length,correction,allele_freq_lst  = ([] for i in range(9))
-    for line in sam_file:
-        if line[0] != '@':
-            line1 = line.split('\t')
-            if line1[4] != '0' and line1[1] in ['0','16']:
-                reads_in_sam.append(line)
-    for read in reads_in_sam:
-        read1 = read.split('\t')
-        parse_sam_output = parse_sam(read)
-        seq.append(parse_sam_output[1])
-        operation.append(parse_sam_output[2])
-        length.append(parse_sam_output[3])
-        strand.append(read1[1])
-        cigar.append(read1[5])
-        start_pos.append(int(read1[3]))
-    [reference,ref_context_info] = parse_fasta(reference_file)
-    len_ref = len(reference)
-    match_matrix, base_matrix, insert_bases_matrix, reads_ID = extract_feature_matrix(reads_in_sam)
-    most_possible_insert = get_most_possbile_insert_bases(insert_bases_matrix)
-    allele_freq_lst,most_possible_allele = get_allele_freq_lst(base_matrix)
+def get_reads_from_input(input_file):
+    reads_in_sam=[]
+    with open (input_file,"r") as sam_file:
+        for line in sam_file.readlines():
+           if line[0] != '@' and random.randrange(1,101)/100.0 <= args.downsample_freq:
+               line1 = line.split('\t')
+               if line1[4] != '0' and str(line1[2]) == region_chr and line1[1] in ['0','16','2048','2064']: 
+                  reads_in_sam.append(line)
+    return reads_in_sam
+
+def correct_reads(reads_in_sam):
+    global mis_rate, allele_freq_lst, snv_ins_freq,base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag,mis_rate0,ins_rate0,del_rate0,ct_base_lst0,ct_ins_lst0,ct_dep_lst0 ,ct_del_lst0
+
+    correction,allele_freq_lst,base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag,mis_rate  = ([] for i in range(8))
+    extract_feature_matrix(reads_in_sam)
+    get_allele_freq_lst()
+    get_consensus_insert_bases()
     for i in range(len(allele_freq_lst)):
-        mis_rate.append(1-allele_freq_lst[i]["ATCG".index(reference[i])]-allele_freq_lst[i][4])
-    del_rate,ins_rate = get_indel_rate(match_matrix) 
-    [base_matrix,match_atrix] = correct_deletion(base_matrix, del_rate, most_possible_allele, match_matrix)
-    [base_matrix,insert_bases_matrix,match_matrix] = correct_insert(base_matrix, ins_rate, insert_bases_matrix,most_possible_allele,match_matrix,allele_freq_lst)
-    allele_freq_lst,most_possible_allele = get_allele_freq_lst(base_matrix)
-    [base_matrix,match_matrix,insert_bases_matrix] = correct_base(match_matrix,most_possible_allele,base_matrix,allele_freq_lst,ins_rate,most_possible_insert,insert_bases_matrix)
-    
+        mis_rate.append(1-allele_freq_lst[i]["ATCG".index(ref_seq[i])]-allele_freq_lst[i][4])
+    get_indel_rate() 
+    large_deletion_finder()
+    mis_rate0 = mis_rate
+    del_rate0 = del_rate
+    ins_rate0 = ins_rate
+    ct_base_lst0 = ct_base_lst
+    ct_ins_lst0 = ct_ins_lst
+    ct_del_lst0 = ct_del_lst
+    ct_dep_lst0 = ct_dep_lst
+    for i in range(len(allele_freq_lst)):
+        correct_large_insert(i)
+        correct_deletion(i)
+    get_indel_rate()
+    for i in range(len(allele_freq_lst)):
+        correct_single_insert(i)
+    get_indel_rate()
+    get_allele_freq_lst()
+    correct_miscall()
     match_matrix = map(list,zip(*match_matrix)) 
     base_matrix = map(list,zip(*base_matrix))
     insert_bases_matrix = map(list,zip(*insert_bases_matrix))
@@ -310,18 +447,54 @@ def correct_sam(sam_file):
                 corrected_seq += (insert_bases_matrix[i][j]+base_matrix[i][j])
         corrected_seq = corrected_seq.replace('D','')
         corrected_seq = corrected_seq.replace('R','')
-        if strand[i] == '0':
+        if reads_flag[i] == '0' or reads_flag[i] == '2048':
             correction.append(corrected_seq)
         else:
             correction.append(RevC(corrected_seq))
     return [reads_ID,correction]
 
-cor_reads = correct_sam(input_file)
 
-print (">>>>>>>> %s seconds <<<<<<<<" % (time.time() - start_time))
-print ("deletion rate: %s" %  (num_del/float(total_num)))
-print ("insert rate: %s" % (num_ins/float(total_num)))
-print ("mismatch rate: %s" % (num_mis/float(total_num)))
-for i in range(len(cor_reads[1])):
-    output_file.write('>' + cor_reads[0][i] + '\n' + cor_reads[1][i] + '\n')
-    
+
+def output_corrected_reads(cor_reads, input_file):
+    with open(input_file[:-3]+"corrected.fasta","w+") as output_file:
+        for i in range(len(cor_reads[1])):
+            output_file.write('>' + cor_reads[0][i] + '\n' + cor_reads[1][i] + '\n')
+
+def output_error_rate(input_file):
+    with open(input_file[:-3]+"error_rate_file_before","w+") as error_rate_file:
+        for i in range(len(mis_rate)):
+            error_rate_file.write('\t'.join(map(str,[region_chr, i + region_start, round(mis_rate0[i],5),round(del_rate0[i],5),round(ins_rate0[i],5)]+map(str,ct_base_lst0[i])+map(str,[ct_del_lst0[i],ct_ins_lst0[i],ct_dep_lst0[i]])+ ref_context_info[i]))+'\n')
+
+    with open(input_file[:-3]+"error_rate_file_after","w+") as error_rate_file:
+        for i in range(len(mis_rate)):
+            error_rate_file.write('\t'.join(map(str,[region_chr, i + region_start, round(mis_rate[i],5),round(del_rate[i],5),round(ins_rate[i],5)]+map(str,ct_base_lst[i])+map(str,[ct_del_lst[i],ct_ins_lst[i],ct_dep_lst[i]])+ ref_context_info[i]))+'\n')
+
+
+
+def main():
+    global region_chr, region_start, region_end,args 
+    parser = get_argument()
+    args = parser.parse_args()
+    samfile = pysam.AlignmentFile(args.input,"r")
+    region_chr = args.targetRegion[:args.targetRegion.find(":")]
+    region_start = int(args.targetRegion[args.targetRegion.find(":")+1:args.targetRegion.find("-")])
+    region_end = int(args.targetRegion[args.targetRegion.find("-")+1:])
+    print "#################################################################################"
+    print "Correcting reads in region" + args.targetRegion
+    parse_fasta(args.reference)
+    time_b = time.time()
+    print ("ALEC took %s seconds to get reference info" % ( round((time_b - start_time),0)))
+    reads = get_reads_from_input(args.input)
+    time_c = time.time()
+    print ("ALEC took %s seconds to get reads" % ( round((time_c - time_b),0)))
+    cor_reads = correct_reads(reads)
+    output_error_rate(args.input)
+    output_corrected_reads(cor_reads, args.input)
+    print ("ALEC took %s seconds to correct" % (round((time.time() - time_c),0)))
+    print ("ALEC took %s seconds to correct %s reads in region %s" % ( round((time.time() - start_time),2), len(cor_reads[1]), args.targetRegion))
+    print "#################################################################################"
+
+if __name__ == "__main__":
+    main()
+
+
