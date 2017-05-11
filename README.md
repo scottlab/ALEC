@@ -6,15 +6,7 @@ Four types of sequencing errors can be corrected after applying ALEC: 1) random 
  
 ## System requirements
 * Python 2.7.10
-* argparse
 * pysam
-* sys
-* re
-* time
-* random
-* itertools
-* operator
-* math
 * numpy
 
 ## Usage
@@ -22,9 +14,6 @@ The ALEC script takes a fasta file as a reference file and a SAM/BAM file as the
 
 Python ALEC.py -r reference.fasta -i filename.bam\/sam [arguments] 
 
-## Note
-1. The script only takes one single sequence as reference each time. Please use the same reference file as used in alignment. 
-2. We do not have a preference regarding the available sequence alignment tools; however, we used alignment files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details). Files from other alignment tool could lead to unexpected performance. 
 
 ### Arguments Table
 
@@ -41,7 +30,11 @@ Python ALEC.py -r reference.fasta -i filename.bam\/sam [arguments]
 |--del_homo_p<br/>-del_hp |	Float	|0.0|	Required. Deletion Homopolymer Penalty.|
 |--ins_homo_p<br/> -ins_hp |	Float	|0.0|	Optional. Insert Homopolymer Penalty.|
 
+## Note
+1. The script only takes one single sequence as reference each time. Please use the same reference file as used in alignment. 
+2. We do not have a preference regarding the available sequence alignment tools; however, we used alignment files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details). Files from other alignment tool could lead to unexpected performance. 
+
 ## Reference
-A manuscript detailing and evaluating the functionality of ALEC is currently in preparation.
+A manuscript detailing and evaluating the functionality of ALEC is currently in preparation.  
 For an application example of ALEC, see reference: 
 Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
