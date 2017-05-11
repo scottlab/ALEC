@@ -407,7 +407,7 @@ def get_reads_from_input(input_file):
     return reads_in_sam
 
 def correct_reads(reads_in_sam):
-    global mis_rate, allele_freq_lst, snv_ins_freq,base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag,mis_rate0,ins_rate0,del_rate0,ct_base_lst0,ct_ins_lst0,ct_dep_lst0 ,ct_del_lst0
+    global mis_rate, allele_freq_lst, snv_ins_freq,base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag
     correction,allele_freq_lst,base_matrix, match_matrix,insert_bases_matrix,reads_ID,reads_flag,mis_rate  = ([] for i in range(8))
     extract_feature_matrix(reads_in_sam)
     get_allele_freq_lst()
@@ -416,13 +416,6 @@ def correct_reads(reads_in_sam):
         mis_rate.append(1-allele_freq_lst[i]["ATCG".index(ref_seq[i])]-allele_freq_lst[i][4])
     get_indel_rate() 
     large_deletion_finder()
-    mis_rate0 = mis_rate
-    del_rate0 = del_rate
-    ins_rate0 = ins_rate
-    ct_base_lst0 = ct_base_lst
-    ct_ins_lst0 = ct_ins_lst
-    ct_del_lst0 = ct_del_lst
-    ct_dep_lst0 = ct_dep_lst
     for i in range(len(allele_freq_lst)):
         correct_large_insert(i)
         correct_deletion(i)
@@ -456,11 +449,7 @@ def output_corrected_reads(cor_reads, input_file):
             output_file.write('>' + cor_reads[0][i] + '\n' + cor_reads[1][i] + '\n')
 
 def output_error_rate(input_file):
-    with open(input_file[:-3]+"error_rate_file_before","w+") as error_rate_file:
-        for i in range(len(mis_rate)):
-            error_rate_file.write('\t'.join(map(str,[region_chr, i + region_start, round(mis_rate0[i],5),round(del_rate0[i],5),round(ins_rate0[i],5)]+map(str,ct_base_lst0[i])+map(str,[ct_del_lst0[i],ct_ins_lst0[i],ct_dep_lst0[i]])+ ref_context_info[i]))+'\n')
-
-    with open(input_file[:-3]+"error_rate_file_after","w+") as error_rate_file:
+    with open(input_file[:-3]+"error_rate_file","w+") as error_rate_file:
         for i in range(len(mis_rate)):
             error_rate_file.write('\t'.join(map(str,[region_chr, i + region_start, round(mis_rate[i],5),round(del_rate[i],5),round(ins_rate[i],5)]+map(str,ct_base_lst[i])+map(str,[ct_del_lst[i],ct_ins_lst[i],ct_dep_lst[i]])+ ref_context_info[i]))+'\n')
             
