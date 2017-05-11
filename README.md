@@ -35,7 +35,7 @@ Python ALEC.py -r reference.fasta -i input.bam\/sam [arguments]
 2. We do not have a preference regarding the available sequence alignment tools; however, we used alignment files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details). Files from other alignment tool could lead to unexpected performance. 
 
 ## Reference
-1.  A manuscript detailing and evaluating the functionality of ALEC is currently in preparation.  
+1.  A manuscript detailing and evaluating the functionality of ALEC is currently under review.  
 2.  For an application example of ALEC, see reference: 
   Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
   
