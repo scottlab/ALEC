@@ -5,9 +5,9 @@
 #date of 1st version :05/30/2015
 #last revised date   :05/01/2017
 #version             :1.0
-#usage               :python ALEC.py
+#usage               :python ALEC.py [arguments]
 #notes               :
-#python_version      :2.7.10
+#python_version      :2.7   (2.7.10 or above)
 #================================================================================================================================================================================
 
 '''Import the modules needed to run the script'''
