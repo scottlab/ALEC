@@ -29,6 +29,7 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
 |--mismatch<br/> -mis|	float	|0.0|	Required. Substitution error frequency threshold (per base) to trigger correction.|
 |--del_homo_p<br/>-del_hp |	float	|0.0|	Required. Deletion Homopolymer Penalty.|
 |--ins_homo_p<br/> -ins_hp |	float	|0.0|	Optional. Insert Homopolymer Penalty.|
+|--help <br/> -h| | |show help message|
 
 ## Note
 1. The script only takes one single sequence as reference each time. Please use the same reference file as used in alignment. 
