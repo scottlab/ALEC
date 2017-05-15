@@ -39,7 +39,7 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
 ## Reference
 1.  A manuscript detailing and evaluating the functionality of ALEC is currently under review.  
 2.  For an application example of ALEC, see reference: 
-  Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
+  [Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.](https://www.ncbi.nlm.nih.gov/pubmed/26602992)
   
 ## Contact  
 * [SCOTT Lab @ Mount Sinai](http://stuartscottlab.org/)
