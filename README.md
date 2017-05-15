@@ -6,7 +6,7 @@ Four types of sequencing errors can be corrected after applying ALEC: 1) random 
  
 ## System requirements
 * Python 2.7.10 or above   
-* Does nott support Python 3 
+* Does not support Python 3 
 * pysam
 * numpy
 
@@ -29,7 +29,7 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
 |--mismatch<br/> -mis|	float	|0.0|	Required. Substitution error frequency threshold (per base) to trigger correction.|
 |--del_homo_p<br/>-del_hp |	float	|0.0|	Required. Deletion Homopolymer Penalty.|
 |--ins_homo_p<br/> -ins_hp |	float	|0.0|	Optional. Insert Homopolymer Penalty.|
-|--platform<br/> -x|string|NA|Optional. Use preset arguments for correction.|
+|--platform<br/> -x|string|NA|Optional. pacbio_ccs, pacbio_sub or nanopore. Use preset arguments for correction.|
 |--help <br/> -h| | |show help message|
 
 ## Note
