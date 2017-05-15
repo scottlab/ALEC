@@ -42,4 +42,4 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
   Qiao W and Yang Y, et al. Hum Mutat. 2016 Mar;37(3):315-23. doi: 10.1002/humu.22936. Epub 2015 Dec 18.
   
 ## Contact  
-* [SCOTT Lab at Mount Sinai](http://stuartscottlab.org/)
+* [SCOTT Lab @ Mount Sinai](http://stuartscottlab.org/)
