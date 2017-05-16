@@ -34,7 +34,7 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
 
 ## Note
 1. The script only takes one single sequence as reference each time. Please use the same reference file as used in alignment. 
-2. ALEC is developed for germline samples, be cautious when using it with somatic mutations.
+2. ALEC was developed for germline samples, be cautious when using it with somatic mutations.
 3. We do not have a preference regarding the available sequence alignment tools; however, we used alignment files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details). Files from other alignment tool could lead to unexpected performance. 
 
 ## Reference
