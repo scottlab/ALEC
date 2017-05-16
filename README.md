@@ -22,14 +22,14 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
 |--input <br/>   -i	| string	| NA	| Required. Input file, SAM or BAM. |
 |-- reference<br/> -r|string|	NA	|Required. Reference file, FASTA file, index it following Samtools manual| 
 |--targetRegion<br/> -t|	string|	NA	|Required. Target region interval. Example: 1:300000-400000|
-|--lengthFilter<br/> -lf	|float|	0.001|	Optional. Reads shorter than lengthFilter * length(targetRegion)<br/> will be excluded in this correction process.|
+|--lengthFilter<br/> -lf	|float|	0.0|	Optional. Reads shorter than lengthFilter * length(targetRegion)<br/> will be excluded in this correction process.|
 |--downsample<br/>	-ds|	float|	1.0|	Optional. Fraction of down sampling. |
 |--deletion<br/> -del|	float|	0.0	|Required. Deletion error frequency threshold (per base) to trigger correction.|
 |--insert<br/> -ins|	float|	0.0|	Required. Insert error frequency threshold (per base) to trigger correction.|
 |--mismatch<br/> -mis|	float	|0.0|	Required. Substitution error frequency threshold (per base) to trigger correction.|
 |--del_homo_p<br/>-del_hp |	float	|0.0|	Required. Deletion Homopolymer Penalty.|
 |--ins_homo_p<br/> -ins_hp |	float	|0.0|	Optional. Insert Homopolymer Penalty.|
-|--platform<br/> -x|string|NA|Optional. pacbio_ccs, pacbio_sub or nanopore. If one of these options was chosen, correction related arguments( -del, -ins, -mis, -del_hp, -ins_hp) will be set as predefined.|
+|--platform<br/> -x|string|NA|Optional. pacbio_ccs, pacbio_sub or nanopore. If one of these options was<br/> chosen, correction related arguments( -del, -ins, -mis, -del_hp, -ins_hp) will<br/> be set as predefined.|
 |--help <br/> -h| | |show help message|
 
 ## Note
