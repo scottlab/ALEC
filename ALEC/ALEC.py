@@ -141,7 +141,7 @@ def parse_sam(read):
 
 def extract_feature_matrix(reads_in_sam):
     '''extract match_maatrix, base_matrix and insert_matrix from sam file'''
-    global base_matrix, match_matrix,insert_bases_matrix 
+    global base_matrix, match_matrix,insert_bases_matrix, read_ct 
     match_matrix,base_matrix,insert_bases_matrix,reads_ID,flag  = ([] for i in range(5))
     for line in reads_in_sam:
         if (line.reference_length > args.lengthFilter * len_ref
@@ -157,12 +157,13 @@ def extract_feature_matrix(reads_in_sam):
     match_matrix = map(list,zip(*match_matrix))
     base_matrix = map(list,zip(*base_matrix))
     insert_bases_matrix = map(list,zip(*insert_bases_matrix))
+    read_ct = len(flag)
     return [match_matrix, base_matrix, insert_bases_matrix,reads_ID,flag]
 
 def get_allele_freq_lst(base_matrix):
-    global ct_base_lst, consensus_allele, depth,ct_mismatch,ct_mismatch_lst
-    ct_base_lst,allele_freq_lst,depth,ct_mismatch_lst,consensus_allele = ([] for i in range(5))
-    for i in range(len(base_matrix)):
+    global ct_base_lst, consensus_base, depth,ct_mismatch,ct_mismatch_lst
+    ct_base_lst,allele_freq_lst,depth,ct_mismatch_lst,consensus_base = ([] for i in range(5))
+    for i in range(len_ref):
         ct_mismatch=0
         A_ct = base_matrix[i].count('A')
         T_ct = base_matrix[i].count('T')
@@ -180,13 +181,13 @@ def get_allele_freq_lst(base_matrix):
         ct_mismatch_lst.append(ct_mismatch)
         max_af = max(allele_freq)
         idx = allele_freq.index(max_af)
-        consensus_allele.append('ATCGD'[idx])
-    return [allele_freq_lst,consensus_allele,depth]
+        consensus_base.append('ATCGD'[idx])
+    return [allele_freq_lst,consensus_base,depth]
 
 def get_indel_rate(match_matrix):
     global del_rate, ins_rate,ct_del_lst, ct_ins_lst,  ct_dep_lst
     ct_del_lst, ct_ins_lst,  ct_dep_lst,del_rate, ins_rate = ([] for i in range(5))
-    for i in range(len(match_matrix)):
+    for i in range(len_ref):
         match_count = match_matrix[i].count('1')
         del_count = match_matrix[i].count('0')
         ins_count = match_matrix[i].count('2')
@@ -201,7 +202,7 @@ def get_indel_rate(match_matrix):
 def get_consensus_insert_bases(insert_bases_matrix):
     consensus_insert,sninsert_freq,A_insert_freq,T_insert_freq,C_insert_freq,G_insert_freq =( [] for i in range(6))
     sninsert_freq = []
-    for i in range(len(insert_bases_matrix)):
+    for i in range(len_ref):
         inserts_at_pos = list(set(insert_bases_matrix[i]))
         if '' in inserts_at_pos:
             inserts_at_pos.remove('')
@@ -235,19 +236,19 @@ def max_count_of_base(DNA_string):
 
 def find_long_del():
     global true_large_del
-    connected_deletion_matrix = [['0' for i in range(len(match_matrix[0]))] for j in range(len(match_matrix)-1)] 
-    connected_deletion_freq =[0.0 for i in range(len(match_matrix)-1)]
+    connected_deletion_matrix = [['0' for i in range(read_ct)] for j in range(len_ref-1)] 
+    connected_deletion_freq =[0.0 for i in range(len_ref-1)]
     large_del_pos = []
     large_del_freq = []
     large_del = []
     true_large_del = []
-    for i in range(len(match_matrix)-1):
-        for j in range(len(match_matrix[0])):
+    for i in range(len_ref-1):
+        for j in range(read_ct):
             if match_matrix[i][j] == '0' and match_matrix[i+1][j] == '0':
                 connected_deletion_matrix[i][j] = '1'
             if match_matrix[i][j] == '.' or match_matrix[i+1][j] == '.':
                 connected_deletion_matrix[i][j] = '.'
-    for i in range(len(match_matrix)-1):
+    for i in range(len_ref-1):
         connected_deletion_freq[i] = float(connected_deletion_matrix[i].count('1'))/(connected_deletion_matrix[i].count('1')+connected_deletion_matrix[i].count('0'))
     for i in range(len(connected_deletion_freq)):
         if connected_deletion_freq[i] >= args.deletion:
@@ -283,6 +284,18 @@ def adjust_deletion_pos(i,j):
         base_matrix[i+1][j] = 'D'
         match_matrix[i+1][j] = '0'
 
+def revise_seq_context_info():
+    for i in range(len_ref):
+        if consensus_base[i] not in [ref_seq[i],'D']:
+            if consensus_base[i] == ref_context_info[i+1][0]:
+                ref_context_info[i][0] = ref_context_info[i+1][0]
+                ref_context_info[i][1] += ref_context_info[i+1][1]
+                ref_context_info[i][2] += ref_context_info[i+1][1]
+            if consensus_base[i] == ref_context_info[i-1][0]:
+                ref_context_info[i][0] = ref_context_info[i-1][0]
+                ref_context_info[i][1] += ref_context_info[i-1][1]
+                ref_context_info[i][2] += ref_context_info[i-1][1]
+
 def replace_confusing_deletion(i,j):
     '''correct deletion misplaced by aliner'''
     del_len = 1
@@ -291,10 +304,10 @@ def replace_confusing_deletion(i,j):
     if (i+2*del_len<len(base_matrix)
         and i+del_len not in true_large_del):
         for k in range(del_len):
-            if base_matrix[i+k+del_len][j]!=consensus_allele[i+k]:
+            if base_matrix[i+k+del_len][j]!=consensus_base[i+k]:
                 break
             else:
-                base_matrix[i+k][j] = consensus_allele[i+k]
+                base_matrix[i+k][j] = consensus_base[i+k]
                 match_matrix[i+k][j] = '1'  
                 base_matrix[i+k+del_len][j] = 'D'
                 match_matrix[i+k+del_len][j] = '0'
@@ -318,62 +331,62 @@ def correct_deletion(i):
     if i in true_large_del:
         pass
     elif del_rate[i] <=  args.deletion + args.del_homo_p*(ref_context_info[i][2]-1):
-        if consensus_allele[i] == 'D' and args.deletion + args.del_homo_p*(ref_context_info[i][2]-1) >=1:
-            consensus_allele[i] = ref_seq[i]
-        for j in range(len(base_matrix[i])):
+        if consensus_base[i] == 'D' and args.deletion + args.del_homo_p*(ref_context_info[i][2]-1) >=1:
+            consensus_base[i] = ref_seq[i]
+        for j in range(read_ct):
             if match_matrix[i][j] == '0':        
                 adjust_deletion_pos(i,j)
             if match_matrix[i][j] == '0':
                 replace_confusing_deletion(i,j)
             if match_matrix[i][j] == '0':
-                base_matrix[i][j] = consensus_allele[i]
+                base_matrix[i][j] = consensus_base[i]
                 match_matrix[i][j] = '1'
     elif (i>0 
           and del_rate[i] >=  args.deletion + args.del_homo_p*(ref_context_info[i][2]-1)
           and del_rate[i] <= args.deletion + args.del_homo_p*ref_context_info[i][2]):
-        for j in range(len(base_matrix[i])):
+        for j in range(read_ct):
             if match_matrix[i][j] == '0':
                 correct_del_in_new_2bp_homopolymer(i,j)
     elif del_rate[i] >= 1 - args.insert:
-        for j in range(len(base_matrix[i])):
+        for j in range(read_ct):
             base_matrix[i][j] = 'D'    
             match_matrix[i][j] = '0'
 
 def correct_single_insert(i):
     for ins in ['A','T','C','G']:
         if snv_ins_freq['ATCG'.index(ins)][i]<= args.insert +args.ins_homo_p*(ref_context_info[i][2]-1):
-            for j in range(len(insert_bases_matrix[i])):
+            for j in range(read_ct):
                 if insert_bases_matrix[i][j] == ins:
                     if (i>0 
                         and base_matrix[i-1][j] 
                         and allele_freq_lst[i-1]['ATCGD'.index(base_matrix[i-1][j])] <= args.mismatch 
-                        and  insert_bases_matrix[i][j] == consensus_allele[i-1]):
-                        base_matrix[i-1][j]=consensus_allele[i-1]
+                        and  insert_bases_matrix[i][j] == consensus_base[i-1]):
+                        base_matrix[i-1][j]=consensus_base[i-1]
                         match_matrix[i-1][j] = '1'
                     elif (i<len(base_matrix)-1 
                           and base_matrix[i+1][j] 
                           and allele_freq_lst[i+1]['ATCGD'.index(base_matrix[i+1][j])] <= args.mismatch 
-                          and  insert_bases_matrix[i][j] == consensus_allele[i+1]):
-                        base_matrix[i+1][j]=consensus_allele[i+1]
+                          and  insert_bases_matrix[i][j] == consensus_base[i+1]):
+                        base_matrix[i+1][j]=consensus_base[i+1]
                         match_matrix[i+1][j] = '1'
                     insert_bases_matrix[i][j] = 'O'
                     match_matrix[i][j] = '1'
    
 def correct_large_insert(i):
     if ins_rate[i] <= args.insert +args.ins_homo_p*(ref_context_info[i][2]-1):
-        for j in range(len(insert_bases_matrix[i])):
+        for j in range(read_ct):
             if insert_bases_matrix[i][j] not in ['','O']:
                 if (i>0 
                    and base_matrix[i-1][j] not in ['.','R'] 
                    and allele_freq_lst[i-1]['ATCGD'.index(base_matrix[i-1][j])] <= args.mismatch 
-                   and  insert_bases_matrix[i][j] == consensus_allele[i-1]):
-                    base_matrix[i-1][j]=consensus_allele[i-1]
+                   and  insert_bases_matrix[i][j] == consensus_base[i-1]):
+                    base_matrix[i-1][j]=consensus_base[i-1]
                     match_matrix[i-1][j] = '1'
                 elif (i<len(base_matrix)-1 
                       and base_matrix[i+1][j] not in ['.','R'] 
                       and allele_freq_lst[i+1]['ATCGD'.index(base_matrix[i+1][j])] <= args.mismatch 
-                      and  insert_bases_matrix[i][j] == consensus_allele[i+1]):
-                    base_matrix[i+1][j]=consensus_allele[i+1]
+                      and  insert_bases_matrix[i][j] == consensus_base[i+1]):
+                    base_matrix[i+1][j]=consensus_base[i+1]
                     match_matrix[i+1][j] = '1'
                 elif len(insert_bases_matrix[i][j]) == 1:
                     if (base_matrix[i][j] not in ['.','R'] 
@@ -382,14 +395,14 @@ def correct_large_insert(i):
                 insert_bases_matrix[i][j] = 'O'
                 match_matrix[i][j] = '1'
     elif ins_rate[i] >= 1 - args.deletion:
-        for j in range(len(insert_bases_matrix[i])):
+        for j in range(read_ct):
             if insert_bases_matrix[i][j] == 'O':
                 insert_bases_matrix[i][j] =consensus_insert[i]
                 match_matrix[i][j] = '2'
   
 
-def correct_miscall(match_matrix,consensus_allele,base_matrix,allele_freq_lst):
-    for i,j in product(range(len(allele_freq_lst)),range(len(base_matrix[0]))):
+def correct_miscall(match_matrix,consensus_base,base_matrix,allele_freq_lst):
+    for i,j in product(range(len_ref),range(read_ct)):
         if  (base_matrix[i][j] not in ['.','R','D'] 
              and (allele_freq_lst[i]['ATCGD'.index(base_matrix[i][j])] <= args.mismatch)):
             if (i>0 and base_matrix[i-1][j] not in ['.','R','D']
@@ -399,37 +412,38 @@ def correct_miscall(match_matrix,consensus_allele,base_matrix,allele_freq_lst):
                 and base_matrix[i+1][j] not in ['.','R','D']
                 and allele_freq_lst[i+1]['ATCG'.index(base_matrix[i][j])] >= args.mismatch):
                 base_matrix[i+1][j]=base_matrix[i][j]
-            base_matrix[i][j] = consensus_allele[i]
+            base_matrix[i][j] = consensus_base[i]
             match_matrix[i][j] = '1'
     return [base_matrix,match_matrix]  
 
 def correct_reads(reads_in_sam):
-    global mis_rate, allele_freq_lst, snv_ins_freq
+    global mis_rate, allele_freq_lst, snv_ins_freq 
     mis_rate = []
     correction,allele_freq_lst  = ([] for i in range(2))
     match_matrix, base_matrix, insert_bases_matrix, reads_ID, flag = extract_feature_matrix(reads_in_sam)
-    allele_freq_lst,consensus_allele,depth = get_allele_freq_lst(base_matrix)
+    allele_freq_lst,consensus_base,depth = get_allele_freq_lst(base_matrix)
     [consensus_insert,snv_ins_freq] = get_consensus_insert_bases(insert_bases_matrix)
-    for i in range(len(allele_freq_lst)):
+    for i in range(len_ref):
         mis_rate.append(1-allele_freq_lst[i]["ATCG".index(ref_seq[i])]-allele_freq_lst[i][4])
     del_rate,ins_rate = get_indel_rate(match_matrix)
     find_long_del()
-    for i in range(len(allele_freq_lst)):
+    revise_seq_context_info() 
+    for i in range(len_ref):
         correct_large_insert(i)
         correct_deletion(i)
     del_rate,ins_rate = get_indel_rate(match_matrix)
-    for i in range(len(allele_freq_lst)):
+    for i in range(len_ref):
         correct_single_insert(i)
     del_rate,ins_rate = get_indel_rate(match_matrix)
-    allele_freq_lst,consensus_allele,depth = get_allele_freq_lst(base_matrix)
-    [base_matrix,match_matrix] = correct_miscall(match_matrix,consensus_allele,base_matrix,allele_freq_lst)
-    allele_freq_lst,consensus_allele,depth = get_allele_freq_lst(base_matrix)
+    allele_freq_lst,consensus_base,depth = get_allele_freq_lst(base_matrix)
+    [base_matrix,match_matrix] = correct_miscall(match_matrix,consensus_base,base_matrix,allele_freq_lst)
+    allele_freq_lst,consensus_base,depth = get_allele_freq_lst(base_matrix)
     match_matrix = map(list,zip(*match_matrix)) 
     base_matrix = map(list,zip(*base_matrix))
     insert_bases_matrix = map(list,zip(*insert_bases_matrix))
-    for i in range(len(match_matrix)):
+    for i in range(read_ct):
         corrected_seq = ''
-        for j in range(len(match_matrix[i])):
+        for j in range(len_ref):
             if match_matrix[i][j] == '1':
                 corrected_seq += base_matrix[i][j]
             elif match_matrix[i][j] == '2':
