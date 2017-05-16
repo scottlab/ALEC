@@ -29,12 +29,13 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
 |--mismatch<br/> -mis|	float	|0.0|	Required. Substitution error frequency threshold (per base) to trigger correction.|
 |--del_homo_p<br/>-del_hp |	float	|0.0|	Required. Deletion Homopolymer Penalty.|
 |--ins_homo_p<br/> -ins_hp |	float	|0.0|	Optional. Insert Homopolymer Penalty.|
-|--platform<br/> -x|string|NA|Optional. pacbio_ccs, pacbio_sub or nanopore. Use preset arguments for correction.|
+|--platform<br/> -x|string|NA|Optional. pacbio_ccs, pacbio_sub or nanopore. If one of these options was chosen, correction related arguments( -del, -ins, -mis, -del_hp, -ins_hp) will be set as predefined.|
 |--help <br/> -h| | |show help message|
 
 ## Note
 1. The script only takes one single sequence as reference each time. Please use the same reference file as used in alignment. 
-2. We do not have a preference regarding the available sequence alignment tools; however, we used alignment files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details). Files from other alignment tool could lead to unexpected performance. 
+2. ALEC is developed for germline samples, be cautious when using it with somatic mutations.
+3. We do not have a preference regarding the available sequence alignment tools; however, we used alignment files generated with BWA-MEM (0.7.12) to develop the ALEC script (see reference below for details). Files from other alignment tool could lead to unexpected performance. 
 
 ## Reference
 1.  A manuscript detailing and evaluating the functionality of ALEC is currently under review.  
