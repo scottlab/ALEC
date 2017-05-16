@@ -29,7 +29,7 @@ Python ALEC.py -r reference.fasta -i input.bam/sam [arguments]
 |--mismatch<br/> -mis|	float	|0.0|	Required. Substitution error frequency threshold (per base) to trigger correction.|
 |--del_homo_p<br/>-del_hp |	float	|0.0|	Required. Deletion Homopolymer Penalty.|
 |--ins_homo_p<br/> -ins_hp |	float	|0.0|	Optional. Insert Homopolymer Penalty.|
-|--platform<br/> -x|string|NA|Optional. pacbio_ccs, pacbio_sub or nanopore. If one of these options was<br/> chosen, correction related arguments( -del, -ins, -mis, -del_hp, -ins_hp) will<br/> be set as predefined.|
+|--platform<br/> -x|string|NA|Optional. pacbio_ccs, pacbio_sub or nanopore. If one of these options was<br/> chosen, correction related arguments( -del, -ins, -mis, -del_hp, -ins_hp) will<br/> be set as predefined.Customrized setting of these parameters will<br/> be ignored.|
 |--help <br/> -h| | |show help message|
 
 ## Note
